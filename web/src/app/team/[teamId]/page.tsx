@@ -163,9 +163,15 @@ export default async function TeamPage({ params }: TeamPageProps) {
 
             <div className="grid gap-4 md:grid-cols-3">
               <Card>
-                <CardHeader>
-                  <CardTitle>Dostępność</CardTitle>
-                </CardHeader>
+                <Link
+                href={`/team/${teamId}/availability`}
+                className="block rounded-xl border bg-card p-6 transition-colors hover:bg-muted/50"
+                >
+                    <h3 className="font-semibold">Dostępność</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                        Dodaj lub sprawdź swoją dostępność do pracy.
+                    </p>
+                </Link>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
                     Tu dodamy formularz dostępności pracowników.

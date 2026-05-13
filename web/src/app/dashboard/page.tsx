@@ -91,14 +91,18 @@ export default async function DashboardPage() {
                         }
 
                         return (
-                            <div key={team.id} className="rounded-xl border bg-card p-4">
-                            <p className="font-medium">{team.name}</p>
+                            <Link
+                            key={team.id}
+                            href={`/team/${team.id}`}
+                            className="block rounded-xl border bg-card p-4 transition-colors hover:bg-muted/50"
+                            >
+                                <p className="font-medium">{team.name}</p>
 
-                            <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                                <p>Rola: {membership.role}</p>
-                                <p>Kod dołączenia: {team.join_code}</p>
-                            </div>
-                            </div>
+                                <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                                    <p>Rola: {membership.role}</p>
+                                    <p>Kod dołączenia: {team.join_code}</p>
+                                </div>
+                            </Link>
                         );
                     })}
                 </div>

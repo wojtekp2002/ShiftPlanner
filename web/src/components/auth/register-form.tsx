@@ -33,7 +33,10 @@ export function RegisterForm() {
     setIsLoading(true);
     setErrorMessage(null);
 
-    const { error } = await supabase.auth.signUp({
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -43,10 +46,30 @@ export function RegisterForm() {
       },
     });
 
+    if (error) {
+      setIsLoading(false);
+      setErrorMessage(error.message);
+      return;
+    }
+
+    if (!user) {
+      setIsLoading(false);
+      setErrorMessage(
+        "Konto zostało utworzone, ale wymaga potwierdzenia emaila."
+      );
+      return;
+    }
+
+    const { error: profileError } = await supabase.from("profiles").insert({
+      id: user.id,
+      email,
+      full_name: fullName,
+    });
+
     setIsLoading(false);
 
-    if (error) {
-      setErrorMessage(error.message);
+    if (profileError) {
+      setErrorMessage(profileError.message);
       return;
     }
 

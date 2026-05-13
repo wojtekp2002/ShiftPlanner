@@ -21,7 +21,13 @@ export default async function DashboardPage() {
     redirect("/auth/login");
   }
 
-  const fullName = user.user_metadata?.full_name ?? "Użytkowniku";
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", user.id)
+    .single();
+
+  const fullName = profile?.full_name ?? user.email ?? "Użytkowniku";
 
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">

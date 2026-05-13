@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function LandingHeader() {
   return (
@@ -20,12 +21,15 @@ export function LandingHeader() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Link href="/auth/login">
-          <Button variant="ghost">Zaloguj się</Button>
+        <Link
+          href="/auth/login"
+          className={cn(buttonVariants({ variant: "ghost" }))}
+        >
+          Zaloguj się
         </Link>
 
-        <Link href="/auth/register">
-          <Button>Utwórz konto</Button>
+        <Link href="/auth/register" className={cn(buttonVariants())}>
+          Utwórz konto
         </Link>
       </div>
     </header>

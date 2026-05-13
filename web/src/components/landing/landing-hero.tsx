@@ -1,7 +1,9 @@
-import { ArrowRight, Link } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function LandingHero() {
   return (
@@ -21,20 +23,21 @@ export function LandingHero() {
       </p>
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-        <Link href="/auth/register">
-            <Button size="lg" className="gap-2">
-                Utwórz zespół
-            <ArrowRight className="size-4" />
-            </Button>
+        <Link
+          href="/auth/register"
+          className={cn(buttonVariants({ size: "lg" }), "gap-2")}
+        >
+          Utwórz zespół
+          <ArrowRight className="size-4" />
         </Link>
 
-        <Link href="/auth/register">
-            <Button size="lg" variant="outline">
-                Dołącz przez kod
-            </Button>
+        <Link
+          href="/auth/register"
+          className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+        >
+          Dołącz przez kod
         </Link>
       </div>
-      
     </div>
   );
 }

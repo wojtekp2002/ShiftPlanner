@@ -10,6 +10,17 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
+type Team = {
+  id: string;
+  name: string;
+  join_code: string;
+};
+
+type TeamMembership = {
+  role: string;
+  teams: Team | Team[] | null;
+};
+
 export default async function DashboardPage() {
   const supabase = await createClient();
 
@@ -29,6 +40,20 @@ export default async function DashboardPage() {
 
   const fullName = profile?.full_name ?? user.email ?? "Użytkowniku";
 
+    const { data: teamMembershipsData } = await supabase
+    .from("team_members")
+    .select(`
+        role,
+        teams (
+            id,
+            name,
+            join_code
+        )
+    `)
+    .eq("user_id", user.id);
+
+    const teamMemberships = (teamMembershipsData ?? []) as unknown as TeamMembership[];
+
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
       <section className="mx-auto max-w-6xl">
@@ -46,12 +71,38 @@ export default async function DashboardPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardTitle>Twoje zespoły</CardTitle>
+                <CardTitle>Twoje zespoły</CardTitle>
             </CardHeader>
+
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Tutaj później pokażemy zespoły, do których należysz.
-              </p>
+                {teamMemberships.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                    Nie należysz jeszcze do żadnego zespołu.
+                </p>
+                ) : (
+                <div className="space-y-3">
+                    {teamMemberships.map((membership) => {
+                        const team = Array.isArray(membership.teams)
+                            ? membership.teams[0]
+                            : membership.teams;
+
+                        if (!team) {
+                            return null;
+                        }
+
+                        return (
+                            <div key={team.id} className="rounded-xl border bg-card p-4">
+                            <p className="font-medium">{team.name}</p>
+
+                            <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                                <p>Rola: {membership.role}</p>
+                                <p>Kod dołączenia: {team.join_code}</p>
+                            </div>
+                            </div>
+                        );
+                    })}
+                </div>
+                )}
             </CardContent>
           </Card>
 

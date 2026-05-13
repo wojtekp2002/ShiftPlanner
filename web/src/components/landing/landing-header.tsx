@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -19,8 +20,13 @@ export function LandingHeader() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Button variant="ghost">Zaloguj się</Button>
-        <Button>Utwórz konto</Button>
+        <Link href="/auth/login">
+          <Button variant="ghost">Zaloguj się</Button>
+        </Link>
+
+        <Link href="/auth/register">
+          <Button>Utwórz konto</Button>
+        </Link>
       </div>
     </header>
   );

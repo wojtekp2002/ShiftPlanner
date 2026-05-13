@@ -188,17 +188,15 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 </div>
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Grafik</CardTitle>
-                </CardHeader>
-
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Tu dodamy widok tygodniowego grafiku.
-                  </p>
-                </CardContent>
-              </Card>
+              <Link
+                href={`/team/${teamId}/schedule`}
+                className="block rounded-xl border bg-card p-6 transition-colors hover:bg-muted/50"
+              >
+                <h3 className="font-semibold">Grafik</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Wygeneruj lub sprawdź grafik pracy zespołu.
+                </p>
+              </Link>
 
               {canManageTeam ? (
                 <Link

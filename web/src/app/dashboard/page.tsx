@@ -128,7 +128,12 @@ export default async function DashboardPage() {
                 >
                 Utwórz zespół
               </Link>
-              <Button variant="outline">Dołącz przez kod</Button>
+              <Link
+                href="/teams/join"
+                className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                Dołącz przez kod
+              </Link>
             </CardContent>
           </Card>
         </div>

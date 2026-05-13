@@ -162,27 +162,37 @@ export default async function TeamPage({ params }: TeamPageProps) {
             </Card>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <Card>
-                <Link
-                href={`/team/${teamId}/availability`}
-                className="block rounded-xl border bg-card p-6 transition-colors hover:bg-muted/50"
-                >
-                    <h3 className="font-semibold">Dostępność</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        Dodaj lub sprawdź swoją dostępność do pracy.
-                    </p>
-                </Link>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Tu dodamy formularz dostępności pracowników.
-                  </p>
-                </CardContent>
-              </Card>
+              <div className="rounded-xl border bg-card p-6">
+                <h3 className="font-semibold">Dostępność</h3>
+
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Dodaj swoją dostępność albo sprawdź dostępność zespołu.
+                </p>
+
+                <div className="mt-4 flex flex-col gap-2">
+                  <Link
+                    href={`/team/${teamId}/availability`}
+                    className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    Moja dostępność
+                  </Link>
+
+                  {canManageTeam && (
+                    <Link
+                      href={`/team/${teamId}/availability/team`}
+                      className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
+                    >
+                      Dostępność zespołu
+                    </Link>
+                  )}
+                </div>
+              </div>
 
               <Card>
                 <CardHeader>
                   <CardTitle>Grafik</CardTitle>
                 </CardHeader>
+
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
                     Tu dodamy widok tygodniowego grafiku.
@@ -190,16 +200,29 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Zmiany</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Tu manager utworzy wymagane zmiany.
+              {canManageTeam ? (
+                <Link
+                  href={`/team/${teamId}/shifts`}
+                  className="block rounded-xl border bg-card p-6 transition-colors hover:bg-muted/50"
+                >
+                  <h3 className="font-semibold">Zmiany</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Ustal, jakie zmiany trzeba obsadzić w tym tygodniu.
                   </p>
-                </CardContent>
-              </Card>
+                </Link>
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Zmiany</CardTitle>
+                  </CardHeader>
+
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Wymagane zmiany są zarządzane przez managera lub właściciela.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
 
@@ -215,6 +238,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                     <p className="rounded-xl border bg-muted px-4 py-3 text-center font-mono text-lg font-semibold tracking-widest">
                       {team.join_code}
                     </p>
+
                     <p className="mt-3 text-sm text-muted-foreground">
                       Udostępnij ten kod pracownikom, aby mogli dołączyć do
                       zespołu.

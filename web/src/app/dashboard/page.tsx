@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-
+import Link from "next/link";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -71,7 +71,12 @@ export default async function DashboardPage() {
               <CardTitle>Szybkie akcje</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <Button>Utwórz zespół</Button>
+              <Link
+                href="/teams/new"
+                className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
+                >
+                Utwórz zespół
+              </Link>
               <Button variant="outline">Dołącz przez kod</Button>
             </CardContent>
           </Card>

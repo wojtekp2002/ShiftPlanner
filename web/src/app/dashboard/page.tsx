@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 
+import { LogoutButton } from "@/components/auth/logout-button";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -33,7 +34,7 @@ export default async function DashboardPage() {
             </h1>
           </div>
 
-          <Button variant="outline">Wyloguj</Button>
+          <LogoutButton />
         </header>
 
         <div className="grid gap-4 md:grid-cols-3">

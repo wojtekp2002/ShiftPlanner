@@ -1,6 +1,9 @@
 "use client";
 
-import { formatDisplayDate, getWeekDays } from "@/components/availability/availability-utils";
+import {
+  formatDisplayDate,
+  getWeekDays,
+} from "@/components/availability/availability-utils";
 import { cn } from "@/lib/utils";
 
 export type CalendarEventVariant =
@@ -52,14 +55,31 @@ function formatHour(hour: number) {
 function getEventPosition(
   event: CalendarEvent,
   startHour: number,
+  endHour: number,
   hourHeight: number
 ) {
-  const calendarStartMinutes = startHour * 60;
+  const visibleStartMinutes = startHour * 60;
+  const visibleEndMinutes = endHour * 60;
+
   const eventStartMinutes = timeToMinutes(event.startTime);
   const eventEndMinutes = timeToMinutes(event.endTime);
 
-  const top = ((eventStartMinutes - calendarStartMinutes) / 60) * hourHeight;
-  const height = ((eventEndMinutes - eventStartMinutes) / 60) * hourHeight;
+  const clippedStartMinutes = Math.max(eventStartMinutes, visibleStartMinutes);
+  const clippedEndMinutes = Math.min(eventEndMinutes, visibleEndMinutes);
+
+  if (clippedEndMinutes <= visibleStartMinutes) {
+    return null;
+  }
+
+  if (clippedStartMinutes >= visibleEndMinutes) {
+    return null;
+  }
+
+  const top =
+    ((clippedStartMinutes - visibleStartMinutes) / 60) * hourHeight;
+
+  const height =
+    ((clippedEndMinutes - clippedStartMinutes) / 60) * hourHeight;
 
   return {
     top,
@@ -87,8 +107,8 @@ export function WeeklyCalendar({
   return (
     <div className="overflow-hidden rounded-xl border bg-card">
       <div className="overflow-x-auto">
-        <div className="min-w-[920px]">
-          <div className="grid grid-cols-[72px_repeat(7,minmax(120px,1fr))] border-b bg-muted/40">
+        <div className="min-w-[1120px]">
+          <div className="grid grid-cols-[72px_repeat(7,minmax(150px,1fr))] border-b bg-muted/40">
             <div className="border-r p-3 text-xs font-medium text-muted-foreground">
               Godz.
             </div>
@@ -119,7 +139,7 @@ export function WeeklyCalendar({
             ))}
           </div>
 
-          <div className="grid grid-cols-[72px_repeat(7,minmax(120px,1fr))]">
+          <div className="grid grid-cols-[72px_repeat(7,minmax(150px,1fr))]">
             <div className="border-r">
               {hours.map((hour) => (
                 <div
@@ -133,14 +153,19 @@ export function WeeklyCalendar({
             </div>
 
             {weekDays.map((day) => {
-              const dayEvents = events.filter(
-                (event) => event.date === day.date
-              );
+              const dayEvents = events
+                .filter((event) => event.date === day.date)
+                .sort(
+                  (a, b) =>
+                    timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+                );
+
+              const eventCount = Math.max(dayEvents.length, 1);
 
               return (
                 <div
                   key={day.date}
-                  className="relative border-r last:border-r-0"
+                  className="relative overflow-hidden border-r last:border-r-0"
                   style={{ height: calendarHeight }}
                 >
                   {hours.map((hour) => (
@@ -152,13 +177,22 @@ export function WeeklyCalendar({
                   ))}
 
                   {dayEvents.map((event, index) => {
-                    const { top, height } = getEventPosition(
+                    const position = getEventPosition(
                       event,
                       startHour,
+                      endHour,
                       hourHeight
                     );
 
+                    if (!position) {
+                      return null;
+                    }
+
                     const variant = event.variant ?? "schedule";
+
+                    const gapPx = 4;
+                    const widthPercent = 100 / eventCount;
+                    const leftPercent = index * widthPercent;
 
                     return (
                       <button
@@ -166,14 +200,15 @@ export function WeeklyCalendar({
                         type="button"
                         onClick={() => onEventClick?.(event)}
                         className={cn(
-                          "absolute left-2 right-2 overflow-hidden rounded-lg border px-2 py-1 text-left text-xs shadow-sm transition-transform hover:scale-[1.01]",
+                          "absolute overflow-hidden rounded-lg border px-2 py-1 text-left text-xs shadow-sm transition-transform hover:z-20 hover:scale-[1.01]",
                           onEventClick && "cursor-pointer",
                           variantStyles[variant]
                         )}
                         style={{
-                          top,
-                          height,
-                          transform: `translateX(${index * 4}px)`,
+                          top: position.top,
+                          height: position.height,
+                          left: `calc(${leftPercent}% + ${gapPx}px)`,
+                          width: `calc(${widthPercent}% - ${gapPx * 2}px)`,
                         }}
                       >
                         <p className="font-semibold leading-tight">

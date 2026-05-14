@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 
 import {
   addDays,
-  formatDisplayDate,
   getStartOfCurrentWeek,
-  getWeekDays,
   isValidISODate,
 } from "@/components/availability/availability-utils";
 import { LogoutButton } from "@/components/auth/logout-button";
+import {
+  type CalendarEvent,
+  WeeklyCalendar,
+} from "@/components/calendar/weekly-calendar";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -46,6 +48,14 @@ type AvailabilityEntry = {
       }[]
     | null;
 };
+
+function getProfileDisplayName(entry: AvailabilityEntry) {
+  const profile = Array.isArray(entry.profiles)
+    ? entry.profiles[0]
+    : entry.profiles;
+
+  return profile?.full_name ?? profile?.email ?? "Nieznany użytkownik";
+}
 
 export default async function TeamAvailabilityPage({
   params,
@@ -98,7 +108,6 @@ export default async function TeamAvailabilityPage({
   const weekEndDateISO = addDays(weekStartDate, 6);
   const previousWeekISO = addDays(weekStartDate, -7);
   const nextWeekISO = addDays(weekStartDate, 7);
-  const weekDays = getWeekDays(weekStartDate);
 
   const { data: availabilityData } = await supabase
     .from("availability")
@@ -122,9 +131,23 @@ export default async function TeamAvailabilityPage({
 
   const availability = (availabilityData ?? []) as unknown as AvailabilityEntry[];
 
+  const calendarEvents: CalendarEvent[] = availability.map((entry) => {
+    const displayName = getProfileDisplayName(entry);
+
+    return {
+      id: entry.id,
+      date: entry.date,
+      startTime: entry.start_time,
+      endTime: entry.end_time,
+      title: displayName,
+      subtitle: entry.note ?? "Dostępny/a",
+      variant: "availability",
+    };
+  });
+
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
-      <section className="mx-auto max-w-6xl">
+      <section className="mx-auto max-w-7xl">
         <header className="mb-8 flex items-start justify-between gap-6">
           <div>
             <Link
@@ -144,7 +167,7 @@ export default async function TeamAvailabilityPage({
             </div>
 
             <p className="mt-2 text-muted-foreground">
-              Zobacz dostępność wszystkich członków zespołu w wybranym tygodniu.
+              Zobacz, kto i kiedy może pracować w wybranym tygodniu.
             </p>
           </div>
 
@@ -174,73 +197,50 @@ export default async function TeamAvailabilityPage({
           </div>
         </div>
 
-        <div className="grid gap-4">
-          {weekDays.map((day) => {
-            const dayAvailability = availability.filter(
-              (entry) => entry.date === day.date
-            );
+        <div className="space-y-6">
+          <WeeklyCalendar
+            weekStartDate={weekStartDate}
+            events={calendarEvents}
+          />
 
-            return (
-              <Card key={day.date}>
-                <CardHeader>
-                  <CardTitle className="flex flex-wrap items-center gap-2">
-                    <span>{day.label}</span>
-                    <span className="text-sm font-normal text-muted-foreground">
-                      {formatDisplayDate(day.date)}
-                    </span>
-                  </CardTitle>
-                </CardHeader>
+          <Card>
+            <CardHeader>
+              <CardTitle>Podsumowanie dostępności</CardTitle>
+            </CardHeader>
 
-                <CardContent>
-                  {dayAvailability.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Brak zgłoszonej dostępności.
-                    </p>
-                  ) : (
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {dayAvailability.map((entry) => {
-                        const profile = Array.isArray(entry.profiles)
-                          ? entry.profiles[0]
-                          : entry.profiles;
+            <CardContent>
+              {availability.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Brak zgłoszonej dostępności w tym tygodniu.
+                </p>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {availability.map((entry) => {
+                    const displayName = getProfileDisplayName(entry);
 
-                        const displayName =
-                          profile?.full_name ?? profile?.email ?? "Nieznany użytkownik";
+                    return (
+                      <div
+                        key={entry.id}
+                        className="rounded-xl border bg-card p-4"
+                      >
+                        <p className="font-medium">{displayName}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {entry.date}, {entry.start_time.slice(0, 5)}–
+                          {entry.end_time.slice(0, 5)}
+                        </p>
 
-                        return (
-                          <div
-                            key={entry.id}
-                            className="rounded-xl border bg-card p-4"
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <p className="font-medium">{displayName}</p>
-                                {profile?.email && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {profile.email}
-                                  </p>
-                                )}
-                              </div>
-
-                              <Badge>
-                                {entry.start_time.slice(0, 5)}–
-                                {entry.end_time.slice(0, 5)}
-                              </Badge>
-                            </div>
-
-                            {entry.note && (
-                              <p className="mt-3 text-sm text-muted-foreground">
-                                {entry.note}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                        {entry.note && (
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {entry.note}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </section>
     </main>

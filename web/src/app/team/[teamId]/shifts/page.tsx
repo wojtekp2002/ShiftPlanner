@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 
 import {
   addDays,
-  formatDisplayDate,
   getStartOfCurrentWeek,
-  getWeekDays,
   isValidISODate,
 } from "@/components/availability/availability-utils";
 import { LogoutButton } from "@/components/auth/logout-button";
+import {
+  type CalendarEvent,
+  WeeklyCalendar,
+} from "@/components/calendar/weekly-calendar";
 import { ShiftRequirementForm } from "@/components/shifts/shift-requirement-form";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -87,7 +89,6 @@ export default async function ShiftsPage({
   const weekEndDateISO = addDays(weekStartDate, 6);
   const previousWeekISO = addDays(weekStartDate, -7);
   const nextWeekISO = addDays(weekStartDate, 7);
-  const weekDays = getWeekDays(weekStartDate);
 
   const { data: requirementsData } = await supabase
     .from("shift_requirements")
@@ -100,9 +101,19 @@ export default async function ShiftsPage({
 
   const requirements = (requirementsData ?? []) as ShiftRequirement[];
 
+  const calendarEvents: CalendarEvent[] = requirements.map((requirement) => ({
+    id: requirement.id,
+    date: requirement.date,
+    startTime: requirement.start_time,
+    endTime: requirement.end_time,
+    title: `Potrzeba ${requirement.required_people} os.`,
+    subtitle: "Wymagana zmiana",
+    variant: "shift",
+  }));
+
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
-      <section className="mx-auto max-w-6xl">
+      <section className="mx-auto max-w-7xl">
         <header className="mb-8 flex items-start justify-between gap-6">
           <div>
             <Link
@@ -122,7 +133,8 @@ export default async function ShiftsPage({
             </div>
 
             <p className="mt-2 text-muted-foreground">
-              Ustal, jakie zmiany trzeba obsadzić w wybranym tygodniu.
+              Ustal, jakie zmiany trzeba obsadzić w wybranym tygodniu. Bloki w
+              kalendarzu pokazują wymagane przedziały pracy.
             </p>
           </div>
 
@@ -152,66 +164,54 @@ export default async function ShiftsPage({
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[420px_1fr]">
-          <ShiftRequirementForm
-            teamId={teamId}
-            weekStartDate={weekStartDate}
-          />
+        <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
+          <div className="space-y-4">
+            <ShiftRequirementForm
+              teamId={teamId}
+              weekStartDate={weekStartDate}
+            />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Zmiany w tym tygodniu</CardTitle>
-            </CardHeader>
+            <Card>
+              <CardHeader>
+                <CardTitle>Lista zmian</CardTitle>
+              </CardHeader>
 
-            <CardContent>
-              {requirements.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Nie dodano jeszcze wymaganych zmian w tym tygodniu.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {weekDays.map((day) => {
-                    const dayRequirements = requirements.filter(
-                      (requirement) => requirement.date === day.date
-                    );
+              <CardContent>
+                {requirements.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Nie dodano jeszcze wymaganych zmian w tym tygodniu.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {requirements.map((requirement) => (
+                      <div
+                        key={requirement.id}
+                        className="rounded-xl border bg-card p-4"
+                      >
+                        <p className="font-medium">
+                          {requirement.date}
+                        </p>
 
-                    if (dayRequirements.length === 0) {
-                      return null;
-                    }
+                        <p className="text-sm text-muted-foreground">
+                          {requirement.start_time.slice(0, 5)}–
+                          {requirement.end_time.slice(0, 5)}
+                        </p>
 
-                    return (
-                      <div key={day.date} className="space-y-2">
-                        <div>
-                          <p className="font-medium">{day.label}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDisplayDate(day.date)}
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
-                          {dayRequirements.map((requirement) => (
-                            <div
-                              key={requirement.id}
-                              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4"
-                            >
-                              <div>
-                                <p className="font-medium">
-                                  {requirement.start_time.slice(0, 5)}–
-                                  {requirement.end_time.slice(0, 5)}
-                                </p>
-                              </div>
-
-                              <Badge>{requirement.required_people} os.</Badge>
-                            </div>
-                          ))}
-                        </div>
+                        <Badge className="mt-3">
+                          {requirement.required_people} os.
+                        </Badge>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <WeeklyCalendar
+            weekStartDate={weekStartDate}
+            events={calendarEvents}
+          />
         </div>
       </section>
     </main>

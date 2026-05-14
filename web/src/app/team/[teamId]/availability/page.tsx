@@ -6,7 +6,7 @@ import {
   getStartOfCurrentWeek,
   isValidISODate,
 } from "@/components/availability/availability-utils";
-import { WeeklyAvailabilityForm } from "@/components/availability/weekly-availability-form";
+import { InteractiveAvailabilityCalendar } from "@/components/availability/interactive-availability-calendar";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
@@ -86,7 +86,7 @@ export default async function AvailabilityPage({
 
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
-      <section className="mx-auto max-w-4xl">
+      <section className="mx-auto max-w-7xl">
         <header className="mb-8 flex items-start justify-between gap-6">
           <div>
             <Link
@@ -106,8 +106,8 @@ export default async function AvailabilityPage({
             </div>
 
             <p className="mt-2 text-muted-foreground">
-              Ustaw swoją dostępność na wybrany tydzień. Puste dni traktujemy
-              jako niedostępne.
+              Kliknij plus przy wybranym dniu albo istniejący blok, aby ustawić
+              swoją dostępność.
             </p>
           </div>
 
@@ -137,7 +137,7 @@ export default async function AvailabilityPage({
           </div>
         </div>
 
-        <WeeklyAvailabilityForm
+        <InteractiveAvailabilityCalendar
           key={weekStartDate}
           teamId={teamId}
           weekStartDate={weekStartDate}

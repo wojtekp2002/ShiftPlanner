@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 
 import {
   addDays,
-  formatDisplayDate,
   getStartOfCurrentWeek,
-  getWeekDays,
   isValidISODate,
 } from "@/components/availability/availability-utils";
 import { LogoutButton } from "@/components/auth/logout-button";
+import {
+  type CalendarEvent,
+  WeeklyCalendar,
+} from "@/components/calendar/weekly-calendar";
 import { GenerateScheduleButton } from "@/components/schedule/generate-schedule-button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -59,6 +61,14 @@ type Schedule = {
   schedule_shifts: ScheduleShift[];
 };
 
+function getAssignmentDisplayName(assignment: ScheduleAssignment) {
+  const profile = Array.isArray(assignment.profiles)
+    ? assignment.profiles[0]
+    : assignment.profiles;
+
+  return profile?.full_name ?? profile?.email ?? "Nieznany użytkownik";
+}
+
 export default async function SchedulePage({
   params,
   searchParams,
@@ -105,7 +115,6 @@ export default async function SchedulePage({
 
   const previousWeekISO = addDays(weekStartDate, -7);
   const nextWeekISO = addDays(weekStartDate, 7);
-  const weekDays = getWeekDays(weekStartDate);
 
   const { data: scheduleData } = await supabase
     .from("schedules")
@@ -133,12 +142,35 @@ export default async function SchedulePage({
     .maybeSingle();
 
   const schedule = scheduleData as unknown as Schedule | null;
-
   const scheduleShifts = schedule?.schedule_shifts ?? [];
+
+  const calendarEvents: CalendarEvent[] = scheduleShifts.map((shift) => {
+    const assignments = shift.schedule_assignments ?? [];
+    const assignedPeople = assignments.length;
+    const missingPeople = shift.required_people - assignedPeople;
+
+    const peopleNames =
+      assignments.length > 0
+        ? assignments.map(getAssignmentDisplayName).join(", ")
+        : "Brak przypisanych osób";
+
+    return {
+      id: shift.id,
+      date: shift.date,
+      startTime: shift.start_time,
+      endTime: shift.end_time,
+      title:
+        missingPeople > 0
+          ? `${assignedPeople}/${shift.required_people} — brakuje ${missingPeople}`
+          : `${assignedPeople}/${shift.required_people} obsadzone`,
+      subtitle: peopleNames,
+      variant: missingPeople > 0 ? "warning" : "schedule",
+    };
+  });
 
   return (
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
-      <section className="mx-auto max-w-6xl">
+      <section className="mx-auto max-w-7xl">
         <header className="mb-8 flex items-start justify-between gap-6">
           <div>
             <Link
@@ -203,99 +235,82 @@ export default async function SchedulePage({
           )}
         </div>
 
-        <div className="grid gap-4">
-          {weekDays.map((day) => {
-            const dayShifts = scheduleShifts.filter(
-              (shift) => shift.date === day.date
-            );
+        <div className="space-y-6">
+          <WeeklyCalendar
+            weekStartDate={weekStartDate}
+            events={calendarEvents}
+          />
 
-            return (
-              <Card key={day.date}>
-                <CardHeader>
-                  <CardTitle className="flex flex-wrap items-center gap-2">
-                    <span>{day.label}</span>
-                    <span className="text-sm font-normal text-muted-foreground">
-                      {formatDisplayDate(day.date)}
-                    </span>
-                  </CardTitle>
-                </CardHeader>
+          <Card>
+            <CardHeader>
+              <CardTitle>Szczegóły grafiku</CardTitle>
+            </CardHeader>
 
-                <CardContent>
-                  {dayShifts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Brak zmian w tym dniu.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {dayShifts.map((shift) => {
-                        const assignments = shift.schedule_assignments ?? [];
-                        const missingPeople =
-                          shift.required_people - assignments.length;
+            <CardContent>
+              {!schedule ? (
+                <p className="text-sm text-muted-foreground">
+                  Nie wygenerowano jeszcze grafiku dla tego tygodnia.
+                </p>
+              ) : scheduleShifts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Grafik nie zawiera żadnych zmian.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {scheduleShifts.map((shift) => {
+                    const assignments = shift.schedule_assignments ?? [];
+                    const missingPeople =
+                      shift.required_people - assignments.length;
 
-                        return (
-                          <div
-                            key={shift.id}
-                            className="rounded-xl border bg-card p-4"
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <p className="font-medium">
-                                  {shift.start_time.slice(0, 5)}–
-                                  {shift.end_time.slice(0, 5)}
-                                </p>
+                    return (
+                      <div
+                        key={shift.id}
+                        className="rounded-xl border bg-card p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium">
+                              {shift.date}, {shift.start_time.slice(0, 5)}–
+                              {shift.end_time.slice(0, 5)}
+                            </p>
 
-                                <p className="text-sm text-muted-foreground">
-                                  Wymagane osoby: {shift.required_people}
-                                </p>
-                              </div>
-
-                              {missingPeople > 0 ? (
-                                <Badge variant="destructive">
-                                  Brakuje {missingPeople}
-                                </Badge>
-                              ) : (
-                                <Badge>Obsadzone</Badge>
-                              )}
-                            </div>
-
-                            <div className="mt-4 space-y-2">
-                              {assignments.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">
-                                  Brak przypisanych osób.
-                                </p>
-                              ) : (
-                                assignments.map((assignment) => {
-                                  const profile = Array.isArray(
-                                    assignment.profiles
-                                  )
-                                    ? assignment.profiles[0]
-                                    : assignment.profiles;
-
-                                  const displayName =
-                                    profile?.full_name ??
-                                    profile?.email ??
-                                    "Nieznany użytkownik";
-
-                                  return (
-                                    <div
-                                      key={assignment.id}
-                                      className="rounded-lg bg-muted px-3 py-2 text-sm"
-                                    >
-                                      {displayName}
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              Wymagane osoby: {shift.required_people}
+                            </p>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+
+                          {missingPeople > 0 ? (
+                            <Badge variant="destructive">
+                              Brakuje {missingPeople}
+                            </Badge>
+                          ) : (
+                            <Badge>Obsadzone</Badge>
+                          )}
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {assignments.length === 0 ? (
+                            <span className="text-sm text-muted-foreground">
+                              Brak przypisanych osób.
+                            </span>
+                          ) : (
+                            assignments.map((assignment) => (
+                              <span
+                                key={assignment.id}
+                                className="rounded-md bg-muted px-3 py-1 text-sm"
+                              >
+                                {getAssignmentDisplayName(assignment)}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </section>
     </main>

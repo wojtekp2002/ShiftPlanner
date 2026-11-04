@@ -1,0 +1,26 @@
+# Only send files used by npm and Next.js.
+**
+!package.json
+!package-lock.json
+!next.config.ts
+!postcss.config.mjs
+!tsconfig.json
+!src/
+!public/
+
+# Keep local artifacts and credentials out of included directories, too.
+**/node_modules
+**/.next
+**/.git
+**/.env
+**/.env.*
+**/npm-debug.log*
+**/.idea
+**/.vscode
+**/.npmrc
+**/.netrc
+**/.aws
+**/.ssh
+**/.kube
+**/*.pem
+**/*.key

@@ -27,3 +27,23 @@ output "ecr_repository_url" {
   description = "URL of the private ECR repository."
   value       = aws_ecr_repository.app.repository_url
 }
+
+output "aws_region" {
+  description = "AWS region to configure for GitHub Actions."
+  value       = var.aws_region
+}
+
+output "ecr_repository_name" {
+  description = "ECR repository name to configure for GitHub Actions."
+  value       = aws_ecr_repository.app.name
+}
+
+output "github_actions_role_arn" {
+  description = "IAM role ARN for GitHub Actions to authenticate through OIDC and publish images."
+  value       = aws_iam_role.github_ci.arn
+}
+
+output "github_oidc_provider_arn" {
+  description = "ARN of the created or reused GitHub IAM OIDC provider."
+  value       = local.github_oidc_provider_arn
+}

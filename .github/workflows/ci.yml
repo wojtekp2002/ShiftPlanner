@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  ci:
+    name: Validate and publish image
+    if: startsWith(github.ref, 'refs/heads/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: web
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_CI_ROLE_ARN: ${{ vars.AWS_CI_ROLE_ARN }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_TELEMETRY_DISABLED: "1"
+      AWS_PAGER: ""
+      AWS_CLI_AUTO_PROMPT: "off"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Check repository variables
+        run: |
+          for variable in AWS_REGION AWS_CI_ROLE_ARN ECR_REPOSITORY NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY; do
+            if [[ -z "${!variable}" ]]; then
+              echo "::error::Missing repository variable $variable"
+              exit 1
+            fi
+          done
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Generate route types
+        run: npx --no-install next typegen
+
+      - name: Check types
+        run: npx --no-install tsc --noEmit
+
+      - name: Build application
+        run: npm run build
+
+      - name: Assume AWS CI role through OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_CI_ROLE_ARN }}
+          role-session-name: github-ci-${{ github.run_id }}
+          role-duration-seconds: 1800
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - name: Build Docker image
+        working-directory: .
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          docker build \
+            --build-arg "NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL" \
+            --build-arg "NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+            --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA" \
+            ./web
+
+      - name: Publish immutable image
+        working-directory: .
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: bash .github/scripts/push-ecr-image.sh

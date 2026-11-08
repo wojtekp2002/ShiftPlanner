@@ -43,6 +43,11 @@ output "github_actions_role_arn" {
   value       = aws_iam_role.github_ci.arn
 }
 
+output "github_actions_deploy_role_arn" {
+  description = "IAM role ARN for the GitHub Actions main branch to deploy through SSM."
+  value       = aws_iam_role.github_deploy.arn
+}
+
 output "github_oidc_provider_arn" {
   description = "ARN of the created or reused GitHub IAM OIDC provider."
   value       = local.github_oidc_provider_arn

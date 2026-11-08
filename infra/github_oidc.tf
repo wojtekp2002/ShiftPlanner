@@ -79,3 +79,63 @@ resource "aws_iam_role_policy" "github_ecr_push" {
   role   = aws_iam_role.github_ci.name
   policy = data.aws_iam_policy_document.github_ecr_push.json
 }
+
+data "aws_partition" "current" {}
+
+data "aws_iam_policy_document" "github_deploy_assume_role" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [local.github_oidc_provider_arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_repository}:ref:refs/heads/main"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_deploy" {
+  name               = "${local.name_prefix}-github-deploy"
+  assume_role_policy = data.aws_iam_policy_document.github_deploy_assume_role.json
+
+  tags = { Name = "${local.name_prefix}-github-deploy" }
+}
+
+data "aws_iam_policy_document" "github_ssm_deploy" {
+  statement {
+    actions = ["ssm:SendCommand"]
+    resources = [
+      aws_instance.host.arn,
+      "arn:${data.aws_partition.current.partition}:ssm:${var.aws_region}::document/AWS-RunShellScript",
+    ]
+  }
+
+  statement {
+    # GetCommandInvocation does not support resource-level permissions.
+    actions   = ["ssm:GetCommandInvocation"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestedRegion"
+      values   = [var.aws_region]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "github_ssm_deploy" {
+  name   = "deploy-shiftplanner-via-ssm"
+  role   = aws_iam_role.github_deploy.name
+  policy = data.aws_iam_policy_document.github_ssm_deploy.json
+}

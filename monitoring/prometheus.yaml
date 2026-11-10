@@ -1,0 +1,218 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: shiftplanner-prometheus
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes/metrics"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: shiftplanner-prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: shiftplanner-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: monitoring
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 30s
+      scrape_timeout: 8s
+      evaluation_interval: 30s
+    storage:
+      tsdb:
+        retention:
+          time: 2d
+          size: 256MB
+    rule_files:
+      - alerts.yml
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets: ["localhost:9090"]
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: 'prometheus_(config_last_reload_successful|tsdb_head_series|tsdb_storage_blocks_bytes|rule_evaluation_failures_total|build_info)|process_(cpu_seconds_total|resident_memory_bytes)'
+            action: keep
+      - job_name: kube-state-metrics
+        static_configs:
+          - targets: ["kube-state-metrics.monitoring.svc.cluster.local:8080"]
+      - job_name: node-exporter
+        static_configs:
+          - targets: ["node-exporter.monitoring.svc.cluster.local:9100"]
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: 'node_cpu_seconds_total|node_memory_Mem(Available|Total)_bytes|node_filesystem_(avail|size)_bytes|node_exporter_build_info'
+            action: keep
+      - job_name: kubelet-cadvisor
+        scheme: https
+        metrics_path: /metrics/cadvisor
+        honor_timestamps: false
+        kubernetes_sd_configs:
+          - role: node
+        authorization:
+          credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: instance
+        metric_relabel_configs:
+          - source_labels: [__name__, namespace, container]
+            regex: 'container_(cpu_usage_seconds_total|memory_working_set_bytes);shiftplanner;shiftplanner'
+            action: keep
+      - job_name: shiftplanner-health
+        metrics_path: /probe
+        params:
+          module: [shiftplanner_health]
+        static_configs:
+          - targets: ["http://traefik.kube-system.svc.cluster.local/api/health"]
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: blackbox-exporter.monitoring.svc.cluster.local:9115
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: 'probe_success|probe_http_status_code|probe_duration_seconds'
+            action: keep
+  alerts.yml: |
+    groups:
+      - name: shiftplanner
+        rules:
+          - alert: ShiftPlannerDown
+            expr: (max(probe_success{job="shiftplanner-health"}) or vector(0)) == 0
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: ShiftPlanner health probe has failed for two minutes.
+          - alert: PodRestartingFrequently
+            expr: increase(kube_pod_container_status_restarts_total{job="kube-state-metrics"}[10m]) >= 3
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }} is restarting frequently."
+          - alert: HighNodeMemoryUsage
+            expr: 1 - node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"} > 0.85
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Node memory use has exceeded 85% for five minutes.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prometheus
+    spec:
+      serviceAccountName: prometheus
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: prometheus
+          image: quay.io/prometheus/prometheus:v3.13.5@sha256:aafa9d694e6a883c02db516d9f6e5b84e14195f49a2a6456a4cca815edda72b9
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --query.max-concurrency=4
+            - --query.max-samples=2000000
+          ports:
+            - name: http
+              containerPort: 9090
+          startupProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+              ephemeral-storage: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+              ephemeral-storage: 640Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+              readOnly: true
+            - name: data
+              mountPath: /prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus
+        - name: data
+          emptyDir:
+            sizeLimit: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: prometheus
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http

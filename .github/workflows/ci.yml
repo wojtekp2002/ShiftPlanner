@@ -110,6 +110,8 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    outputs:
+      performed: ${{ steps.current.outputs.deploy }}
     concurrency:
       group: shiftplanner-k3s
       cancel-in-progress: false
@@ -179,3 +181,54 @@ jobs:
             RESULT="skipped because main advanced"
           fi
           printf '### CD\n\n- Result **%s**\n- Commit `%s`\n' "$RESULT" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+  notify:
+    name: Notify Discord (optional)
+    needs: [ci, deploy]
+    if: ${{ !cancelled() && (needs.ci.result == 'success' || needs.ci.result == 'failure') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Send CI/CD result
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          CI_RESULT: ${{ needs.ci.result }}
+          CD_RESULT: ${{ needs.deploy.result }}
+          CD_PERFORMED: ${{ needs.deploy.outputs.performed }}
+        run: |
+          node --input-type=module <<'NODE'
+          const webhook = process.env.DISCORD_WEBHOOK_URL?.trim();
+          if (!webhook) process.exit(0);
+
+          if (!/^https:\/\/discord\.com\/api\/webhooks\/[0-9]+\/[A-Za-z0-9_-]+$/.test(webhook)) {
+            console.warn("::warning::DISCORD_WEBHOOK_URL must be a Discord webhook URL.");
+            process.exit(0);
+          }
+
+          const {
+            GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_REF_NAME, GITHUB_SHA, GITHUB_RUN_ID,
+            CI_RESULT, CD_RESULT, CD_PERFORMED,
+          } = process.env;
+          const deployment = CD_RESULT === "success" && CD_PERFORMED !== "true" ? "skipped" : CD_RESULT;
+          const content = [
+            `Repository ${GITHUB_REPOSITORY}`,
+            `Branch ${GITHUB_REF_NAME.slice(0, 200)}`,
+            `Commit ${GITHUB_SHA}`,
+            `CI ${CI_RESULT} | CD ${deployment}`,
+            `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`,
+          ].join("\n");
+
+          try {
+            const response = await fetch(webhook, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+              redirect: "error",
+              signal: AbortSignal.timeout(10000),
+            });
+            if (!response.ok) console.warn(`::warning::Discord returned HTTP ${response.status}.`);
+          } catch {
+            console.warn("::warning::Discord notification could not be delivered.");
+          }
+          NODE

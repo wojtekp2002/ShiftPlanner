@@ -16,6 +16,26 @@ dist/
 .env.*
 !.env.example
 
+# local credentials and Kubernetes access
+.aws/
+.kube/
+kubeconfig
+kubeconfig.yaml
+kubeconfig.yml
+id_ed25519
+id_rsa
+*.pem
+*.key
+*.p12
+*.pfx
+
+# local Terraform artifacts
+*.tfvars
+*.tfvars.json
+*.tfstate
+*.tfstate.*
+*.tfplan
+
 # logs
 npm-debug.log*
 yarn-debug.log*

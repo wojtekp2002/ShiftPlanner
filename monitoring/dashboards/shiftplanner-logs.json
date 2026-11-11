@@ -1,0 +1,92 @@
+{
+  "uid": "shiftplanner-logs",
+  "title": "ShiftPlanner | Logs",
+  "tags": ["shiftplanner", "k3s"],
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": false,
+  "timezone": "browser",
+  "refresh": "",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": {"type": "loki", "uid": "loki"},
+        "query": {
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "type": 1,
+          "label": "namespace"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "current": {"text": "shiftplanner", "value": "shiftplanner"}
+      },
+      {
+        "name": "pod",
+        "label": "Pod",
+        "type": "query",
+        "datasource": {"type": "loki", "uid": "loki"},
+        "query": {
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "type": 1,
+          "label": "pod",
+          "stream": "{namespace=\"$namespace\"}"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {"text": "All", "value": "$__all"}
+      },
+      {
+        "name": "container",
+        "label": "Kontener",
+        "type": "query",
+        "datasource": {"type": "loki", "uid": "loki"},
+        "query": {
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "type": 1,
+          "label": "container",
+          "stream": "{namespace=\"$namespace\", pod=~\"$pod\"}"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {"text": "All", "value": "$__all"}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Ostatnie logi",
+      "description": "Wpisy z kontenerów Kubernetes według namespace, poda i kontenera.",
+      "type": "logs",
+      "datasource": {"type": "loki", "uid": "loki"},
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 22},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "loki", "uid": "loki"},
+          "editorMode": "code",
+          "expr": "{namespace=\"$namespace\", pod=~\"$pod\", container=~\"$container\"}",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showLogLevel": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ]
+}

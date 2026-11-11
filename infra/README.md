@@ -2,7 +2,7 @@
 
 Konfiguracja tworzy środowisko edukacyjne `dev` w `eu-central-1`. Obejmuje VPC z jedną publiczną podsiecią i trasą do Internet Gateway, pojedynczą instancję EC2 z Amazon Linux 2023 x86_64 oraz prywatne repozytorium ECR `shiftplanner`. Domyślna instancja `t3.small` ma publiczny IPv4, szyfrowany dysk gp3 i wymaga IMDSv2.
 
-Security group dopuszcza publiczny ruch HTTP i HTTPS. Domyślnie SSH jest wyłączone. Rola instancji umożliwia pobieranie obrazów z repozytorium `shiftplanner`. ECR ma niezmienne tagi, skanowanie przy publikacji i politykę zachowania 15 najnowszych obrazów. Dodatkowa rola IAM udostępnia GitHub Actions możliwość publikacji obrazów przez OIDC.
+Security group dopuszcza publiczny ruch HTTP i HTTPS. Domyślnie SSH jest wyłączone. Rola instancji umożliwia pobieranie obrazów z repozytorium `shiftplanner` i administrację przez SSM. ECR ma niezmienne tagi, skanowanie przy publikacji i politykę zachowania 15 najnowszych obrazów. GitHub Actions używa osobnych ról OIDC do publikacji obrazów i wdrożenia przez SSM.
 
 ## Wymagania
 
@@ -42,7 +42,7 @@ Przed utworzeniem zasobów należy zweryfikować plan, konto i region. Zapisany 
 terraform apply shiftplanner.tfplan
 ```
 
-AMI jest pobierane z aktualnego publicznego parametru SSM. Gdy AWS zaktualizuje parametr, kolejny plan może zaproponować wymianę instancji EC2.
+Przy tworzeniu instancji Terraform odczytuje AMI z aktualnego publicznego parametru SSM. Reguła `ignore_changes = [ami]` zachowuje obraz istniejącej instancji po zmianie parametru. Wymiana instancji w celu aktualizacji AMI wymaga osobnego planu, sprawdzenia skutków dla publicznego adresu oraz ponownego uruchomienia k3s. [Cykl życia zasobów Terraform](https://developer.hashicorp.com/terraform/language/meta-arguments/lifecycle#ignore_changes)
 
 Po utworzeniu zasobów konfiguracja GitHub Actions wymaga przeniesienia odpowiednich outputs Terraform do zmiennych repozytorium. Kolejność konfiguracji i obsługa workflow zostały opisane w [dokumentacji CI](../docs/CI.md).
 
@@ -50,9 +50,4 @@ Po utworzeniu zasobów konfiguracja GitHub Actions wymaga przeniesienia odpowied
 
 Koszty mogą naliczać się za czas działania EC2, wolumen EBS, publiczny IPv4, przechowywanie obrazów w ECR i transfer danych. [EC2](https://aws.amazon.com/ec2/pricing/on-demand/), [EBS](https://aws.amazon.com/ebs/pricing/), [Publiczne IPv4](https://aws.amazon.com/vpc/pricing/), [ECR](https://aws.amazon.com/ecr/pricing/)
 
-Po zakończeniu użycia należy usunąć zasoby poleceniem `terraform destroy`, aby uniknąć dalszych kosztów środowiska edukacyjnego. Polecenie należy wykonać z tego samego katalogu i z tym samym stanem. Repozytorium ECR zawierające obrazy wymaga wcześniejszego opróżnienia. Przed potwierdzeniem należy zweryfikować listę zasobów do usunięcia i własność providera OIDC. [Terraform destroy](https://developer.hashicorp.com/terraform/cli/commands/destroy), [Usuwanie repozytorium ECR](https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_DeleteRepository.html)
-
-```powershell
-terraform plan -destroy
-terraform destroy
-```
+Po zakończeniu użycia należy usunąć zasoby Terraform, aby uniknąć dalszych kosztów środowiska edukacyjnego. Procedura obejmuje weryfikację konta, stanu i planu usunięcia, opróżnienie zweryfikowanego ECR oraz kontrolę zasobów po wykonaniu. [Instrukcja sprzątania](../docs/CLEANUP.md)

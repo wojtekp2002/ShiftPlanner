@@ -13,10 +13,21 @@ spec:
       labels:
         app.kubernetes.io/name: shiftplanner
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: shiftplanner
           image: 660140202510.dkr.ecr.eu-central-1.amazonaws.com/shiftplanner:691ea0bda73d04c169cf5d4e0293efc21879eed0
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           ports:
             - name: http
               containerPort: 3000

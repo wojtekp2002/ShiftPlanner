@@ -14,6 +14,15 @@
     "from": "now-1h",
     "to": "now"
   },
+  "links": [
+    {
+      "type": "link",
+      "title": "Logi ShiftPlanner",
+      "url": "/d/shiftplanner-logs/shiftplanner-7c-logs",
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
   "panels": [
     {
       "id": 1,

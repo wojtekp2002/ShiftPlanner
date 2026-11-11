@@ -1,0 +1,190 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki
+  namespace: monitoring
+data:
+  loki.yaml: |
+    auth_enabled: false
+
+    server:
+      http_listen_port: 3100
+      grpc_listen_address: 127.0.0.1
+
+    common:
+      instance_addr: 127.0.0.1
+      path_prefix: /var/lib/loki
+      replication_factor: 1
+      ring:
+        kvstore:
+          store: inmemory
+
+    schema_config:
+      configs:
+        - from: 2025-01-01
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+
+    storage_config:
+      filesystem:
+        directory: /var/lib/loki/chunks
+      tsdb_shipper:
+        active_index_directory: /var/lib/loki/index
+        cache_location: /var/lib/loki/index-cache
+
+    ingester:
+      chunk_block_size: 65536
+      chunk_target_size: 262144
+      chunk_idle_period: 5m
+      max_chunk_age: 30m
+      concurrent_flushes: 2
+      wal:
+        dir: /var/lib/loki/wal
+        replay_memory_ceiling: 32MB
+
+    compactor:
+      working_directory: /var/lib/loki/compactor
+      retention_enabled: true
+      delete_request_store: filesystem
+      retention_delete_worker_count: 2
+
+    querier:
+      max_concurrent: 2
+
+    limits_config:
+      retention_period: 24h
+      ingestion_rate_mb: 0.25
+      ingestion_burst_size_mb: 1
+      max_global_streams_per_user: 100
+      max_line_size: 16KB
+      max_line_size_truncate: true
+      max_query_lookback: 24h
+      max_query_length: 24h
+      max_query_parallelism: 2
+      tsdb_max_query_parallelism: 2
+      max_entries_limit_per_query: 1000
+      allow_structured_metadata: false
+      volume_enabled: true
+
+    analytics:
+      reporting_enabled: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki
+  namespace: monitoring
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: loki
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: loki
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: loki
+          image: docker.io/grafana/loki:3.7.9@sha256:569e5cab050b7705eb82080335ff9a8bd329650b358bb0d42131e3ced8d9492e
+          args:
+            - -target=all
+            - -config.file=/etc/loki/loki.yaml
+          env:
+            - name: GOMEMLIMIT
+              value: 144MiB
+          ports:
+            - name: http
+              containerPort: 3100
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+              ephemeral-storage: 64Mi
+            limits:
+              cpu: 250m
+              memory: 224Mi
+              ephemeral-storage: 640Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: config
+              mountPath: /etc/loki
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/loki
+            - name: temp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: loki
+        - name: data
+          emptyDir:
+            sizeLimit: 512Mi
+        - name: temp
+          emptyDir:
+            sizeLimit: 32Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: loki
+  ports:
+    - name: http
+      port: 3100
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loki
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: loki
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [alloy, grafana]
+      ports:
+        - protocol: TCP
+          port: 3100

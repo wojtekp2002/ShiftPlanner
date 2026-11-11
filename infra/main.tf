@@ -182,6 +182,11 @@ resource "aws_instance" "host" {
   associate_public_ip_address = true
   key_name                    = var.key_name
 
+  lifecycle {
+    # A new Amazon Linux release must not replace the running demonstration host.
+    ignore_changes = [ami]
+  }
+
   credit_specification {
     cpu_credits = "standard"
   }

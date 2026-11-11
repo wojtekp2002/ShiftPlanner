@@ -15,3 +15,4 @@ configMapGenerator:
   - name: grafana-dashboard
     files:
       - dashboards/shiftplanner.json
+      - dashboards/shiftplanner-logs.json

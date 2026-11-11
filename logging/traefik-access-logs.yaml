@@ -1,0 +1,29 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      spec:
+        type: ClusterIP
+    ports:
+      web:
+        hostPort: 80
+    updateStrategy:
+      type: Recreate
+    accessLog:
+      enabled: true
+      format: json
+      filters:
+        statusCodes: "200-399,500-599"
+      fields:
+        defaultMode: drop
+        names:
+          RequestMethod: keep
+          DownstreamStatus: keep
+          RouterName: keep
+          Duration: keep
+        headers:
+          defaultMode: drop

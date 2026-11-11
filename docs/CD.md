@@ -24,11 +24,17 @@ GitHub Actions uzyskuje przez OIDC i AWS STS tymczasowe poświadczenia dla osobn
 2. Polecenie na EC2 porównuje obraz w Deployment i gotowym podzie z adresem zawierającym SHA bieżącego commita.
 3. Runner sprawdza wynik SSM pod identyfikatorem `CommandId`, pobiera stdout i stderr, a następnie sprawdza publiczny endpoint zdrowia. Warunkiem sukcesu jest HTTP 200 oraz odpowiedź JSON `{"status":"ok"}`. Liczba prób i czas oczekiwania są ograniczone.
 
-Błąd polecenia, rozbieżność obrazu lub nieudany test HTTP kończą job błędem. Wynik CI i wdrożenia jest dostępny w podsumowaniach uruchomienia na karcie `Actions`. Powiadomienia do zewnętrznego kanału pozostają do skonfigurowania. [Podsumowania jobów GitHub Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary)
+Błąd polecenia, rozbieżność obrazu lub nieudany test HTTP kończą job błędem. Wynik CI i wdrożenia jest dostępny w podsumowaniach uruchomienia na karcie `Actions`. [Podsumowania jobów GitHub Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary)
+
+## Powiadomienia Discord
+
+Aby włączyć powiadomienia, należy utworzyć webhook w docelowym kanale Discord i dodać jego adres HTTPS jako sekret repozytorium `DISCORD_WEBHOOK_URL` w `Settings > Secrets and variables > Actions > Secrets`. Adresu nie należy przechowywać w kodzie, zmiennych repozytorium ani w treści dokumentacji. [Sekrety GitHub Actions](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets), [Webhook Discord](https://docs.discord.com/developers/resources/webhook#execute-webhook)
+
+Job powiadomień podaje repozytorium, gałąź, SHA, wynik CI i CD oraz link do uruchomienia. Komunikat rozróżnia powodzenie, niepowodzenie i pominięcie CD. Pusty sekret pomija wysyłkę. Błąd wysyłki generuje ostrzeżenie bez adresu webhooka i nie zmienia wyniku CI ani CD. Po ustawieniu sekretu należy sprawdzić dostarczenie wiadomości po kolejnym uruchomieniu workflow.
 
 ## Ręczny rollback
 
-Kubernetes zachowuje poprzednie rewizje Deployment w ReplicaSetach. Przed rollbackiem należy upewnić się, że nie trwa wdrożenie przez GitHub Actions ani polecenie SSM aktualizujące obraz. W konsoli AWS Systems Manager należy uruchomić dokument `AWS-RunShellScript` na instancji ShiftPlanner, korzystając z uprawnień operatora. Najpierw należy sprawdzić historię rewizji.
+Kubernetes zachowuje poprzednie rewizje Deployment w ReplicaSetach. Wycofanie przywraca cały szablon poda, dlatego należy sprawdzić, czy wybrana rewizja zawiera aktualny kontekst bezpieczeństwa. Przed rollbackiem należy upewnić się, że nie trwa wdrożenie przez GitHub Actions ani polecenie SSM aktualizujące obraz. W konsoli AWS Systems Manager należy uruchomić dokument `AWS-RunShellScript` na instancji ShiftPlanner, korzystając z uprawnień operatora. Najpierw należy sprawdzić historię rewizji.
 
 ```bash
 sudo k3s kubectl -n shiftplanner rollout history deployment/shiftplanner
